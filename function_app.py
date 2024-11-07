@@ -1,25 +1,17 @@
 import azure.functions as func
-import logging
+from dotenv import load_dotenv
+from functions.query_documents import query_documents
+from functions.ingest_documents import ingest_documents
+load_dotenv()
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
-@app.route(route="jvgrag1")
-def jvgrag1(req: func.HttpRequest) -> func.HttpResponse:
-    logging.info('Python HTTP trigger function processed a request.')
+# http://localhost:7071/api/query_documents?query_text=RAG
+@app.route(route="query_documents")
+def query_documents_route(req: func.HttpRequest) -> func.HttpResponse:
+    return query_documents(req)
 
-    name = req.params.get('name')
-    if not name:
-        try:
-            req_body = req.get_json()
-        except ValueError:
-            pass
-        else:
-            name = req_body.get('name')
-
-    if name:
-        return func.HttpResponse(f"Hello, {name}. This HTTP triggered function executed successfully.")
-    else:
-        return func.HttpResponse(
-             "This HTTP triggered function executed successfully. Pass a name in the query string or in the request body for a personalized response.",
-             status_code=200
-        )
+# http://localhost:7071/api/ingest_documents
+@app.route(route="ingest_documents")
+def ingest_documents_route(req: func.HttpRequest) -> func.HttpResponse:
+    return ingest_documents(req)

@@ -1,8 +1,6 @@
 import azure.functions as func
 import logging
-import os
 from services.document_processor import DocumentProcessor
-import numpy as np
 
 def ingest_documents(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Document ingestion function processed a request.')

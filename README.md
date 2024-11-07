@@ -19,11 +19,28 @@ A serverless Azure Function that both provides document processing and RAG (Retr
 3. Query your documents using `/api/query_documents?query=your search query`
 
 # Installation
-- Create new azure function in azure portal
+## Setup Azure (via azure portal)
+- Create new azure function
+- Setup a cosmosDB instance
+- Setup a cognitive search service, with an index and an indexer
+    - Fields: text and field embeddings (384) -> Collection.Single
+
+# Setup vscode
 - VScode -> install azure plugin -> Then execute: Azure functions: New project
 
 pip install -r requirements.txt
 (Perhaps some ingestion libs are still missing)
+
+## Setup a .env file with:
+DB_URL = "https://###.documents.azure.com:443/"
+DB_PRIMARY_KEY = 
+DB_NAME = 
+DB_CONTAINER = 
+
+COG_SEARCH_NAME = 
+COG_SEARCH_API_KEY = 
+COG_SEARCH_INDEX = 
+COG_SEARCH_TOP_K = 3
 
 
 ## Use Cases

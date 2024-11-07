@@ -1,21 +1,20 @@
 import logging
 import os
-from langchain.document_loaders import UnstructuredPDFLoader, UnstructuredWordDocumentLoader, CSVLoader, PyPDFLoader
+from langchain.document_loaders import UnstructuredWordDocumentLoader, CSVLoader, PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from transformers import pipeline
 from azure.cosmos import CosmosClient
 import uuid
 import numpy as np
 import requests
-import json
+from sentence_transformers import SentenceTransformer
 
 class DocumentProcessor:
-    def __init__(self, db_url, db_key, db_name, db_container):
-        self.db_url = db_url
-        self.db_key = db_key
-        self.db_name = db_name
-        self.db_container = db_container
-        self.embedder = pipeline('feature-extraction', model='sentence-transformers/all-mpnet-base-v2')
+    def __init__(self):
+        self.db_url = os.getenv("DB_URL")
+        self.db_key = os.getenv("DB_PRIMARY_KEY")
+        self.db_name = os.getenv("DB_NAME")
+        self.db_container = os.getenv("DB_CONTAINER")
+        self.embedder = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
 
     def get_files_from_folder(self, folder_path):
         files = [os.path.join(folder_path, f) for f in os.listdir(folder_path) 
@@ -60,8 +59,8 @@ class DocumentProcessor:
         cosmos_documents = []
         for i, chunk in enumerate(chunks):
             chunk_text = chunk.page_content
-            embedding = self.embedder(chunk_text, padding=True, truncation=True, max_length=512)[0]
-            
+            embedding = self.embedder.encode(chunk_text, convert_to_tensor=False).astype(np.float32).tolist()
+                        
             cosmos_doc = {
                 "id": str(uuid.uuid4()),
                 "text": chunk_text,
@@ -84,30 +83,11 @@ class DocumentProcessor:
             
 
     def query_documents(self, query_text, top_k=5):
-        """
-        Perform semantic search on stored documents.
-        
-        Args:
-            query_text (str): The search query
-            top_k (int): Number of results to return
-            
-        Returns:
-            list: Top k matching documents with their scores
-        """
-        # Generate embedding for the query
-        query_embedding = self.embedder(query_text, padding=True, truncation=True, max_length=512)[0]
-
-        # Assuming the output is a list of arrays, flatten it to a single array
-        # This example uses mean pooling
-        query_embedding = np.mean(query_embedding, axis=0).tolist()
-
-        # Azure Cognitive Search details
+        query_embedding = self.embedder.encode(query_text, convert_to_tensor=False).astype(np.float32).tolist()
         search_service_name = os.getenv("COG_SEARCH_NAME")
         index_name = os.getenv("COG_SEARCH_INDEX")
         api_key = os.getenv("COG_SEARCH_API_KEY")
-
-        # Query parameters
-        top_k = 5
+        top_k = os.getenv("COG_SEARCH_TOP_K")
 
         # Construct the search URL
         # https://learn.microsoft.com/en-us/azure/search/search-get-started-vector?tabs=azure-cli
@@ -122,7 +102,7 @@ class DocumentProcessor:
         body = {
             "count": True,
             "search": query_text,
-            "select": "text, metadata",
+            "select": "text",
             "top": top_k,
             "vectorQueries": [
                 {
@@ -135,51 +115,12 @@ class DocumentProcessor:
             ]
         }
 
-        response = requests.post(url, headers=headers, json=body)
-        response.raise_for_status()  # Check if the request was successful
-        return response.json()
-
-        # Process and display results
-        #for result in results['value']:
-            #print(f"Document: {result['text']}")
-            #print(f"Metadata: {result['metadata']}")
-            #print(f"Score: {result['@search.score']}")
-
-        return results["value"]
-
-        """
-        # Retrieve all documents
-        query = "SELECT * FROM c"
-        documents = list(container.query_items(query=query, enable_cross_partition_query=True))
-        
-        # Calculate cosine similarity
-        def cosine_similarity(vec1, vec2):
-            return np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2))
-        
-        # Compute similarity scores
-        results = []
-        for doc in documents:
-            doc_embedding = np.array(doc['embedding'])
-            similarity_score = cosine_similarity(query_embedding, doc_embedding)
-            results.append((doc, similarity_score))
-        
-        # Sort results by similarity score in descending order
-        results.sort(key=lambda x: x[1], reverse=True)
-        
-        # Return top-k results
-        return results[:top_k]
-        """
-
-    def clear_container(self):
-        """Clear all documents from the container."""
-        cosmos_client = CosmosClient(self.db_url, self.db_key)
-        database = cosmos_client.get_database_client(self.db_name)
-        container = database.get_container_client(self.db_container)
-        
-        # Query all documents
-        query = "SELECT c.id FROM c"
-        items = list(container.query_items(query=query, enable_cross_partition_query=True))
-        
-        # Delete each document
-        for item in items:
-            container.delete_item(item=item['id'], partition_key=item['id'])
+        try:
+            response = requests.post(url, headers=headers, json=body)
+            if response.status_code != 200:
+                logging.error(f"Search API error: Status {response.status_code}, Response: {response.text}")
+            response.raise_for_status()
+            return response.json()["value"]
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Error in query_documents: {str(e)}, Response: {e.response.text if e.response else 'No response'}")
+            raise

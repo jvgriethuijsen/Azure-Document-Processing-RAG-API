@@ -7,7 +7,6 @@ load_dotenv()
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
 # http://localhost:7071/api/query_documents?query_text=RAG
-# https://learn.microsoft.com/en-us/azure/search/search-get-started-vector?tabs=azure-cli
 @app.route(route="query_documents")
 def query_documents_route(req: func.HttpRequest) -> func.HttpResponse:
     return query_documents(req)

@@ -1,7 +1,11 @@
 # Document Processing & RAG API
 
-A serverless Azure Function that both provides document processing and RAG (Retrieval-Augmented Generation) capabilities through two main endpoints:
+A serverless Azure Function that provides document processing and RAG (Retrieval-Augmented Generation) capabilities through two main endpoints. It performs hybrid search combining both keyword matching and vector similarity search, allowing it to find:
+- Documents containing exact keyword matches
+- Documents with semantically similar meanings (even if using different words)
+- Results ranked by relevance using both traditional and AI-powered search
 
+The API exposes two main endpoints:
 - `/api/ingest_documents`: Processes and indexes documents from the `ingest` folder
 - `/api/query_documents`: Semantic similarity search across processed documents
 
@@ -19,6 +23,7 @@ A serverless Azure Function that both provides document processing and RAG (Retr
 3. Query your documents using `/api/query_documents?query=your search query`
 
 # Installation
+
 ## Setup Azure (via azure portal)
 - Create new azure function
 - Setup a cosmosDB instance
@@ -42,15 +47,15 @@ COG_SEARCH_API_KEY =
 COG_SEARCH_INDEX = 
 COG_SEARCH_TOP_K = 3
 
-
-## Use Cases
+# Use Cases
 - Enterprise document search
 - Knowledge base creation
 - Content discovery systems
 - Legal document analysis
+- Chatbot enhancements
 - Research assistance
 
-## Need Custom Development?
+# Need Custom Development?
 This API is maintained by Joey van Griethuijsen, specializing in:
 - Backend & fullstack development
 - Custom AI/ML solutions

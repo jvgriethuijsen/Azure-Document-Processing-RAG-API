@@ -15,7 +15,7 @@ class DocumentProcessor:
         self.db_key = db_key
         self.db_name = db_name
         self.db_container = db_container
-        self.embedder = pipeline('feature-extraction', model='sentence-transformers/all-MiniLM-L6-v2')
+        self.embedder = pipeline('feature-extraction', model='sentence-transformers/all-mpnet-base-v2')
 
     def get_files_from_folder(self, folder_path):
         files = [os.path.join(folder_path, f) for f in os.listdir(folder_path) 
@@ -96,12 +96,10 @@ class DocumentProcessor:
         """
         # Generate embedding for the query
         query_embedding = self.embedder(query_text, padding=True, truncation=True, max_length=512)[0]
-        
-        # Connect to Cosmos DB
-        cosmos_client = CosmosClient(self.db_url, self.db_key)
-        database = cosmos_client.get_database_client(self.db_name)
-        container = database.get_container_client(self.db_container)
-        
+
+        # Assuming the output is a list of arrays, flatten it to a single array
+        # This example uses mean pooling
+        query_embedding = np.mean(query_embedding, axis=0).tolist()
 
         # Azure Cognitive Search details
         search_service_name = os.getenv("COG_SEARCH_NAME")
@@ -112,20 +110,34 @@ class DocumentProcessor:
         top_k = 5
 
         # Construct the search URL
-        url = f"https://{search_service_name}.search.windows.net/indexes/{index_name}/docs"
+        # https://learn.microsoft.com/en-us/azure/search/search-get-started-vector?tabs=azure-cli
+        # https://learn.microsoft.com/en-us/azure/search/vector-search-how-to-create-index?tabs=config-2024-07-01%2Crest-2024-07-01%2Cpush%2Cportal-check-index
+        url = f"https://{search_service_name}.search.windows.net/indexes/{index_name}/docs/search?api-version=2024-07-01"
         headers = {
             'Content-Type': 'application/json',
             'api-key': api_key
         }
-        params = {
-            'api-version': '2024-07-01',
-            'search': query_text,
-            '$top': top_k
+
+        # Construct the request body for vector similarity search
+        body = {
+            "count": True,
+            "search": query_text,
+            "select": "text, metadata",
+            "top": top_k,
+            "vectorQueries": [
+                {
+                    "vector": query_embedding,
+                    "k": top_k,
+                    "fields": "embedding",
+                    "kind": "vector",
+                    "exhaustive": True
+                }
+            ]
         }
 
-        # Perform the search request
-        response = requests.get(url, headers=headers, params=params)
-        results = response.json()
+        response = requests.post(url, headers=headers, json=body)
+        response.raise_for_status()  # Check if the request was successful
+        return response.json()
 
         # Process and display results
         #for result in results['value']:
@@ -157,3 +169,17 @@ class DocumentProcessor:
         # Return top-k results
         return results[:top_k]
         """
+
+    def clear_container(self):
+        """Clear all documents from the container."""
+        cosmos_client = CosmosClient(self.db_url, self.db_key)
+        database = cosmos_client.get_database_client(self.db_name)
+        container = database.get_container_client(self.db_container)
+        
+        # Query all documents
+        query = "SELECT c.id FROM c"
+        items = list(container.query_items(query=query, enable_cross_partition_query=True))
+        
+        # Delete each document
+        for item in items:
+            container.delete_item(item=item['id'], partition_key=item['id'])

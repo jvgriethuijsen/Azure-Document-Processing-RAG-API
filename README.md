@@ -37,15 +37,14 @@ pip install -r requirements.txt
 (Perhaps some ingestion libs are still missing)
 
 ## Setup a .env file with:
-DB_URL = "https://###.documents.azure.com:443/"
-DB_PRIMARY_KEY = 
-DB_NAME = 
-DB_CONTAINER = 
-
-COG_SEARCH_NAME = 
-COG_SEARCH_API_KEY = 
-COG_SEARCH_INDEX = 
-COG_SEARCH_TOP_K = 3
+- DB_URL = "https://###.documents.azure.com:443/"
+- DB_PRIMARY_KEY = 
+- DB_NAME = 
+- DB_CONTAINER = 
+- COG_SEARCH_NAME = 
+- COG_SEARCH_API_KEY = 
+- COG_SEARCH_INDEX = 
+- COG_SEARCH_TOP_K = 3
 
 # Use Cases
 - Enterprise document search
